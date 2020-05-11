@@ -1,68 +1,73 @@
 require_relative 'hangman_methods'
+require_relative 'hangman/game'
 require 'json'
 
 class Hangman
   include HangmanMethods
 
-  attr_accessor :game_over, :current_game
+  attr_accessor :current_game
 
-  def initialize(name = "Player")
-    @game_over = false
+  def initialize
+    @current_game = game_start
 
-    @current_game = {
-                    player: name,
-                    remaining_guesses: "default",
-                    correct_guesses: [],
-                    incorrect_guesses: [],
-                    word: []
-    }
-
-    game_start
+    play(@current_game)
   end
 
   def game_start
-    puts "Welcome to Hangman!"
+    puts 'Welcome to Hangman!'
+    new_or_load
+  end
 
-    good_input = false
+  def new_or_load
+    puts "Please write \'1\' for new game or \'2\' to load a game."
+    input = gets.chomp
 
-    until good_input
-      puts "Please write \'1\' for new game or \'2\' to load a game."
-      input = gets.chomp
-        case input
-        when "1"
-          new_game
-          good_input = true
-        when "2"
-          load_game
-          good_input = true
-        else
-          puts "I don't understand"
-        end
+    case input
+    when '1'
+      new_game
+    when '2'
+      load_game
+    else
+      puts "I don't understand"
+      new_or_load
     end
   end
 
   def new_game
-    current_game[:remaining_guesses] = select_difficulty
-    current_game[:word] = generate_word
+    remaining_guesses = select_difficulty
+    secret_word = generate_word
 
-    play
+    Game.new(secret_word, remaining_guesses)
   end
 
   def load_game
-    save = File.read("saves/saved_game.json")
-    @current_game = JSON.parse(save, symbolize_names: true)
+    save = File.read('saves/saved_game.json')
+    attributes = JSON.parse(save, symbolize_names: true)
 
-    play
+    Game.new(
+      attributes[:word],
+      attributes[:remaining_guesses],
+      attributes[:correct_guesses],
+      attributes[:incorrect_guesses]
+    )
   end
 
-  def play
-    until game_over
-    display_game
-    input = get_input
-    change_state(input)
-    game_over?
+  def play(current_game)
+    if game_over?(current_game)
+      if current_game.remaining_guesses.zero?
+        puts 'You lose!'
+        puts
+        puts "The word was #{current_game.word}"
+      elsif word_to_display(current_game.word, current_game.correct_guesses).include?('_') == false
+        puts 'You win!'
+        puts
+        puts "The word was #{current_game.word}."
+      end
+    else
+      display_game
+      input = get_input
+      change_state(input)
+      play(current_game)
     end
   end
 end
-
-Hangman.new
